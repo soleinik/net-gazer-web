@@ -3,7 +3,7 @@
 
 
 
-# dev env setup
+## dev env setup
 ```bash
 $ lsb_release -a
 No LSB modules are available.
@@ -21,16 +21,16 @@ nodejs
 $ sudo apt-get install -y nodejs
 ```
 
-> to verify  
 ```bash
+// verify  
 $ nodejs -v
 v8.10.0
 ```
 
 
 npm  
-> to install  
 ```bash
+//install  
 $ sudo apt-get install npm
 ```
 
@@ -40,6 +40,14 @@ $ npm init
 
 $ npm install --save hapi
 
+```bash
+//dynamicaly reload changes
+# npm instal -g nodemon
+```
 
+//start app 
 $ node app
+
+//start app with dynamic reload
+$ nodemon 
 
