@@ -45,6 +45,9 @@ $ npm install --save hapi
 # npm instal -g nodemon
 ```
 
+$ npm install --save inert
+
+
 //start app 
 $ node app
 
