@@ -5,7 +5,6 @@ const server = new Hapi.Server({
     host: 'localhost',
 });
 
-
 server.route({   
     method: 'GET',   
     path: '/',   
@@ -14,17 +13,36 @@ server.route({
     } 
 });
 
+server.route({   
+    method: 'GET',   
+    path: '/chart',   
+    handler: (request, reply) => {     
+        return reply.file('./static/chart.html');
+    } 
+});
+
+server.route({   
+    method: 'GET',   
+    path: '/chart/data.json',   
+    handler: (request, reply) => {     
+        return reply.file('./static/data.json');
+    } 
+});
 
 
 
-const launch = async () => {
-    try { 
-        await server.start(); 
-    } catch (err) { 
-        console.error(err); 
-        process.exit(1); 
-    }; 
-    console.log(`Server running at ${server.info.uri}`); 
+
+
+async function launch () {  
+    await server.register({
+      plugin: require('inert')
+    })
+  
+    await server.start()
+    console.log('Server started at: ' + server.info.uri)
 }
+  
+launch()
 
-launch();
+
+
