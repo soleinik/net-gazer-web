@@ -9,14 +9,6 @@ server.route({
     method: 'GET',   
     path: '/',   
     handler: (request, reply) => {     
-        return 'I am the home route'   
-    } 
-});
-
-server.route({   
-    method: 'GET',   
-    path: '/chart',   
-    handler: (request, reply) => {     
         return reply.file('./static/chart.html');
     } 
 });

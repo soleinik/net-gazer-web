@@ -6,8 +6,11 @@
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script>
 
-var width = 1600;
-var height = 800;
+//var width = 1600;
+//var height = 800;
+var height = window.screen.height;
+var width = window.screen.width;
+
 var color = d3.scaleOrdinal(d3.schemeCategory10);
 
 d3.json("/chart/data.json").then(function(graph) {
