@@ -9,8 +9,10 @@
 
     //var width = 1600;
     //var height = 800;
-    var height = window.screen.height;
-    var width = window.screen.width;
+    //var height = window.screen.height;
+    //var width = window.screen.width;
+    var height = window.innerHeight;
+    var width = window.innerWidth;
 
     var color = d3.scaleOrdinal(d3.schemeCategory10);
 
@@ -22,8 +24,10 @@
         };
 
         graph.nodes.forEach(function (d, i) {
+
             label.nodes.push({ node: d });
             label.nodes.push({ node: d });
+
             label.links.push({
                 source: i * 2,
                 target: i * 2 + 1
@@ -39,7 +43,7 @@
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("x", d3.forceX(width / 2).strength(1))
             .force("y", d3.forceY(height / 2).strength(1))
-            .force("link", d3.forceLink(graph.links).id(function (d) { return d.id; }).distance(50).strength(1))
+            .force("link", d3.forceLink(graph.links).id(function (d) { return d.id; }).distance(50).strength(2))
             .on("tick", ticked);
 
         var adjlist = [];
@@ -75,9 +79,15 @@
             .selectAll("g")
             .data(graph.nodes)
             .enter()
-            .append("circle")
-            .attr("r", 15)
-            .attr("fill", function (d) { return color(d.group); })
+                .append("circle")
+                    .attr("r", (dat, index, n) => {
+                        console.log("n:" + n);
+                        if (index < 1){
+                            return 30;
+                        }
+                        return 15;
+                    })
+                    .attr("fill", function (d) { return color(d.group); })
 
         //node.on("mouseover", focus).on("mouseout", unfocus);
 
@@ -90,14 +100,17 @@
 
         var labelNode = container.append("g").attr("class", "labelNodes")
             .selectAll("text")
-            .data(label.nodes)
-            .enter()
-            .append("text")
-            .text(function (d, i) { return i % 2 == 0 ? "" : d.node.id; })
-            .style("fill", "#555")
-            .style("font-family", "Arial")
-            .style("font-size", 12)
-            .style("pointer-events", "none"); // to prevent mouseover/drag capture
+                .data(label.nodes)
+                .enter()
+                    .append("text")
+                        //.text(function (d, i) { return i % 2 == 0 ? "" : d.node.id; })
+                        .text( (d, i) => {
+                             return i % 2 == 0 ? "" : i==1? d.node.id + "(Origin)": d.node.id ; }
+                        )
+                        .style("fill", "#555")
+                        .style("font-family", "Arial")
+                        .style("font-size", 12)
+                        .style("pointer-events", "none"); // to prevent mouseover/drag capture
 
         //node.on("mouseover", focus).on("mouseout", unfocus);
 
@@ -178,11 +191,11 @@
             d.fy = d3.event.y;
         }
 
-        function dragended(d) {
-            if (!d3.event.active) graphLayout.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
+        // function dragended(d) {
+        //     if (!d3.event.active) graphLayout.alphaTarget(0);
+        //     d.fx = null;
+        //     d.fy = null;
+        // }
 
     }); // d3.json
 </script>
