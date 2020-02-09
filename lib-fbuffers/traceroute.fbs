@@ -1,0 +1,38 @@
+// traceroute.fbs
+
+
+table Message{
+    seq:uint64;         //message sequence
+
+    routes:[Route];     //new routes
+    hops:  [Hop];       //route hops
+}
+
+
+table Route{
+    route_id:uint16;    //pkt_id, trace id
+
+    src: uint32;        //ipv4
+    dst: uint32;        //ipv4
+}
+
+table Hop{
+    route_id:uint16;    //pkt_id, trace id
+
+    hop: uint32;        //ipv4
+
+    ttl:ubyte;          //time to live, also hop id
+    rtt:uint16;         //round trip time
+}
+
+root_type Message;
+
+/*
+
+Nodes
+Route{route_id,src, ttl=0} -> Hop{route_id, hop, ttl = index -> Route{route_id,dst,ttl=0}
+
+Links
+Route.src -> hop[ttl].hop -> 
+
+*/
