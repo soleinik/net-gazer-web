@@ -1,9 +1,4 @@
-use actix_web::{get, web, App, HttpServer, Responder};
-
-#[get("/{id}/{name}/index.html")]
-async fn index(info: web::Path<(u32, String)>) -> impl Responder {
-    format!("Hello {}! id:{}", info.1, info.0)
-}
+use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -21,6 +16,7 @@ async fn main() -> std::io::Result<()> {
         _ => std::env::set_var("RUST_LOG", "trace"),
 
     }
+    //std::env::set_var("RUST_LOG", "actix_web=debug");
     env_logger::init();
 
     //load from file...
@@ -28,12 +24,31 @@ async fn main() -> std::io::Result<()> {
     opt.validate().unwrap();
 
 
+    HttpServer::new(|| 
+        App::new()
+        .wrap(middleware::Logger::default())
+        .service(index)
+        .service(data)
+    )
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}
 
+#[get("/{id}/{name}/index.html")]
+async fn index(info: web::Path<(u32, String)>) -> impl Responder {
+    format!("Hello {}! id:{}", info.1, info.0)
+}
 
+use futures::{Future, Stream, StreamExt};
 
+#[post("/data")]
+async fn data(mut body: web::Payload) -> Result<HttpResponse, Error>{
+    let mut bytes = web::BytesMut::new();
+    while let Some(item) = body.next().await {
+        bytes.extend_from_slice(&item?);
+    }
 
-    HttpServer::new(|| App::new().service(index))
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
+    println!("Body {:?}!", bytes);
+    Ok(HttpResponse::Ok().finish())
 }

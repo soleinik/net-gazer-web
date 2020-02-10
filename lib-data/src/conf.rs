@@ -3,6 +3,8 @@ use std::path::Path;
 
 
 const KEY_REDIS_URL:&str = "redis.url";
+const KEY_HTTP_IP:&str = "http.ip";
+const KEY_HTTP_PORT:&str = "http.port";
 
 
 #[derive(StructOpt, Debug, Clone)]
@@ -23,6 +25,14 @@ pub struct OptConf {
     /// url to connect to redis instance
     #[structopt(long = "redis", env = "NG_REDIS_URL")]
     pub redis_url: Option<String>,
+
+    /// ip for http to bind to
+    #[structopt(long = "http-ip", env = "NG_HTTP_IP")]
+    pub http_ip: Option<String>,
+
+    /// ip for http to bind to
+    #[structopt(long = "http-port", env = "NG_HTTP_PORT")]
+    pub http_port: Option<u16>,
 
 }
 
@@ -67,12 +77,39 @@ impl OptConf{
             if self.redis_url.is_none(){
                 self.redis_url = settings.get_str(KEY_REDIS_URL).ok();
             }    
+
+            if self.http_ip.is_none(){
+                self.http_ip = settings.get_str(KEY_HTTP_IP).ok();
+            }   
+
+            use std::convert::TryFrom;
+            if self.http_port.is_none(){
+                self.http_port = settings
+                    .get_int(KEY_HTTP_PORT)
+                    .and_then(|v| 
+                        u16::try_from(v)
+                            .map_err(|v|{
+                                let msg = format!("http.port value of {} is not valid!", v);
+                                error!("{}", msg);
+                                config::ConfigError::Message(msg)
+                            })
+                    )
+                    .ok();
+            }    
         }
     }
 
     pub fn validate(&self) -> crate::AppResult<()>{
         if self.redis_url.is_none(){
             error!("redis url is not specified!");
+            std::process::exit(-1);
+        }
+        if self.http_ip.is_none(){
+            error!("http-ip is not specified!");
+            std::process::exit(-1);
+        }
+        if self.redis_url.is_none(){
+            error!("http-port is not specified!");
             std::process::exit(-1);
         }
     
