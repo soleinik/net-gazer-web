@@ -31,6 +31,9 @@ async fn main() -> std::io::Result<()> {
 
     let client = lib_db::get_conn(&opt);
 
+    let url = format!("{}:{}", opt.http_ip.unwrap(), opt.http_port.unwrap());
+    println!("starting server at {}...", url);
+
     HttpServer::new(move || 
         App::new()
         .wrap(
@@ -41,7 +44,7 @@ async fn main() -> std::io::Result<()> {
         .service(data)
         .service(health)
     )
-    .bind(format!("{}:{}", opt.http_ip.unwrap(), opt.http_port.unwrap()))?
+    .bind(&url)?
     .run()
     .await
 }

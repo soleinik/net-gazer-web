@@ -14,6 +14,8 @@ pub fn get_conn(opts:&lib_data::OptConf) -> Pool{
 }
 
 
+
+
 fn junk(){
 
     // let redis_url = opts.redis_url.clone().unwrap_or_else(||"redis://localhost/net-gazer".into());
