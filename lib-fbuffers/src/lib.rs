@@ -1,6 +1,6 @@
 mod traceroute_generated;
 
-
+pub use traceroute_generated::*;
 
 #[cfg(test)]
 mod tests {

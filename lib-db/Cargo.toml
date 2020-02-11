@@ -1,0 +1,11 @@
+[package]
+name = "lib-db"
+version = "0.1.0"
+authors = ["soleinik <162591+soleinik@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+redis = "0.15.1"
+log = "0.4.8"

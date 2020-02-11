@@ -1,5 +1,8 @@
 use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
 
+use lib_fbuffers::get_root_as_message;
+
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
 
@@ -40,7 +43,7 @@ async fn index(info: web::Path<(u32, String)>) -> impl Responder {
     format!("Hello {}! id:{}", info.1, info.0)
 }
 
-use futures::{Future, Stream, StreamExt};
+use futures::StreamExt;
 
 #[post("/data")]
 async fn data(mut body: web::Payload) -> Result<HttpResponse, Error>{
@@ -49,6 +52,24 @@ async fn data(mut body: web::Payload) -> Result<HttpResponse, Error>{
         bytes.extend_from_slice(&item?);
     }
 
-    println!("Body {:?}!", bytes);
+    let vmsg = bytes.to_vec();
+    let msg = get_root_as_message(&vmsg);
+
+    if let Some(routes) = msg.routes(){
+        routes.iter().for_each(|r|println!(
+            "id:{} src:{}->dst:{}",
+            r.route_id(),
+            std::net::Ipv4Addr::from(r.src()),
+            std::net::Ipv4Addr::from(r.dst())
+        ));
+    }else if let Some(hops) = msg.hops(){
+        hops.iter().for_each(|r|println!(
+            "   id:{} hop:{} ttl:{} rtt:{} msec",
+            r.route_id(),
+            std::net::Ipv4Addr::from(r.hop()),
+            r.ttl(),
+            r.rtt()
+        ));
+    }
     Ok(HttpResponse::Ok().finish())
 }

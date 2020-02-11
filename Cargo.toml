@@ -10,11 +10,13 @@ edition = "2018"
 members=[
     "lib-data",
     "lib-fbuffers",
+    "lib-db",
 ]
 
 [dependencies]
 lib-data = { path="./lib-data" }
 lib-fbuffers = { path="./lib-fbuffers" }
+lib-db = { path="./lib-db" }
 
 actix-rt = "1.0.0"
 actix-web = "2.0.0"
