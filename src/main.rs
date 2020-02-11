@@ -1,3 +1,6 @@
+#[macro_use] extern crate log;
+
+
 use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
 
 use lib_fbuffers::get_root_as_message;
@@ -27,13 +30,22 @@ async fn main() -> std::io::Result<()> {
     opt.validate().unwrap();
 
 
-    HttpServer::new(|| 
+    let redis_url = opt.redis_url.clone().unwrap_or_else(||"redis://127.0.0.1".into());
+    info!("About to attempt to connect to '{}'...", redis_url);
+
+    let client = std::sync::Arc::new(redis::Client::open(redis_url).unwrap_or_else(|e|{
+        error!("Redis connectivity failed! Error:{}",e);
+        std::process::exit(-1);
+    }));
+
+    HttpServer::new(move || 
         App::new()
         .wrap(middleware::Logger::default())
+        .data(client.clone())
         .service(index)
         .service(data)
     )
-    .bind("127.0.0.1:8080")?
+    .bind(format!("{}:{}", opt.http_ip.unwrap(), opt.http_port.unwrap()))?
     .run()
     .await
 }
