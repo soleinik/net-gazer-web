@@ -2,6 +2,7 @@
 
 
 use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
+use actix_files as fs;
 
 use lib_fbuffers::get_root_as_message;
 
@@ -41,8 +42,10 @@ async fn main() -> std::io::Result<()> {
             .exclude("/health")
         )
         .data(client.clone())
+        .service(chart)
         .service(data)
         .service(health)
+        .service(fs::Files::new("chart", "./www/static"))
     )
     .bind(&url)?
     .run()
@@ -53,7 +56,7 @@ async fn main() -> std::io::Result<()> {
 use futures::StreamExt;
 
 #[post("/data")]
-async fn data(mut body: web::Payload) -> Result<HttpResponse, Error>{
+async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<HttpResponse, Error>{
     let mut bytes = web::BytesMut::new();
     while let Some(item) = body.next().await {
         bytes.extend_from_slice(&item?);
@@ -63,20 +66,24 @@ async fn data(mut body: web::Payload) -> Result<HttpResponse, Error>{
     let msg = get_root_as_message(&vmsg);
 
     if let Some(routes) = msg.routes(){
-        routes.iter().for_each(|r|println!(
-            "id:{} src:{}->dst:{}",
-            r.route_id(),
-            std::net::Ipv4Addr::from(r.src()),
-            std::net::Ipv4Addr::from(r.dst())
-        ));
+        routes.iter().for_each(|r|{
+            let r = lib_data::AppTraceRoute::new(
+                r.route_id(),
+                std::net::Ipv4Addr::from(r.src()),
+                std::net::Ipv4Addr::from(r.dst())
+            );
+            println!("{}", r);
+        })
     }else if let Some(hops) = msg.hops(){
-        hops.iter().for_each(|r|println!(
-            "   id:{} hop:{} ttl:{} rtt:{} msec",
-            r.route_id(),
-            std::net::Ipv4Addr::from(r.hop()),
-            r.ttl(),
-            r.rtt()
-        ));
+        hops.iter().for_each(|r|{
+            let h = lib_data::AppHop::new(
+                r.route_id(),
+                std::net::Ipv4Addr::from(r.hop()),
+                r.ttl(),
+                r.rtt()
+            );
+            println!("\t{}", h);
+        })
     }
     bytes.freeze();
     Ok(HttpResponse::Ok().finish())
@@ -87,4 +94,13 @@ async fn health() ->  impl Responder {
     "UP"
     .with_header("Content-Type", "text/plain; charset=utf-8")
     .with_status(actix_web::http::StatusCode::OK)
+}
+
+
+#[get("/")]
+async fn chart() -> Result<HttpResponse, Error> {
+    // response
+    Ok(HttpResponse::build(actix_web::http::StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../www/static/chart.html")))
 }
