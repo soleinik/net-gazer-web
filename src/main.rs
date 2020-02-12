@@ -67,22 +67,27 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
 
     if let Some(routes) = msg.routes(){
         routes.iter().for_each(|r|{
-            let r = lib_data::AppTraceRoute::new(
+            let route = lib_data::AppTraceRoute::new(
                 r.route_id(),
                 std::net::Ipv4Addr::from(r.src()),
                 std::net::Ipv4Addr::from(r.dst())
             );
-            println!("{}", r);
+            let mut conn = db.get_connection().unwrap();
+            lib_db::add_route(&mut conn, &route);
+            //println!("{}", route);
         })
     }else if let Some(hops) = msg.hops(){
         hops.iter().for_each(|r|{
-            let h = lib_data::AppHop::new(
+            let hop = lib_data::AppHop::new(
                 r.route_id(),
-                std::net::Ipv4Addr::from(r.hop()),
+                std::net::Ipv4Addr::from(r.src()),
+                std::net::Ipv4Addr::from(r.this()),
                 r.ttl(),
                 r.rtt()
             );
-            println!("\t{}", h);
+            let mut conn = db.get_connection().unwrap();
+            lib_db::add_hop(&mut conn, &hop);
+            //println!("\t{}", hop);
         })
     }
     bytes.freeze();

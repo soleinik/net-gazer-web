@@ -36,17 +36,18 @@ impl fmt::Display for AppTraceRoute{
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AppHop{
     pub route_id: u16,
-    pub hop: Ipv4Addr,
+    pub src: Ipv4Addr,
+    pub this: Ipv4Addr,
     pub ttl:u8,
     pub rtt: u16,
 }
 impl AppHop{
-    pub fn new(route_id: u16, hop:Ipv4Addr, ttl:u8, rtt:u16) -> Self{
-        AppHop{route_id, hop, ttl, rtt}
+    pub fn new(route_id: u16, src:Ipv4Addr, this:Ipv4Addr, ttl:u8, rtt:u16) -> Self{
+        AppHop{route_id, src, this, ttl, rtt}
     }
 }
 impl fmt::Display for AppHop{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "hop:[{}] {} {}",self.route_id, self.hop, self.ttl)
+        write!(f, "hop:[{}] {}->{} {}",self.route_id, self.src, self.this, self.ttl)
     }
 }

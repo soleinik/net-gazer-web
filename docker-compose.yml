@@ -4,6 +4,6 @@ services:
 
   redis:
     image: 'redislabs/redisgraph'
-    command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]  # disable persistence
+    #command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]  # disable persistence
     ports:
       - "6379:6379"

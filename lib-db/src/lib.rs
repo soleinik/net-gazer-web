@@ -13,30 +13,55 @@ pub fn get_conn(opts:&lib_data::OptConf) -> Pool{
     }))
 }
 
-pub fn add_route(db:&Pool, pkt_id:u16, data:&[u8]){
-    let res = db.get_connection()
-        .and_then(|mut conn| {
-            redis::cmd("LPUSH")
-                    .arg(pkt_id)
-                    .arg(data)
-            .query::<()>(&mut conn)
-        });
+pub fn add_route(conn:& mut redis::Connection, route:&lib_data::AppTraceRoute){
+    let create_0 = format!(
+        "MERGE (h:hop {{ip:'{}'}}) \
+            ON CREATE SET h.route_id={} 
+        ",
+        route.src, route.route_id
+    );
 
-    if let Err(e) = res{
-        error!("redis.routes: unable to send! Error:{}", e);
-    }
+    let create_1 = format!(
+        "MERGE (h:hop {{ip:'{}'}}) \
+            ON CREATE SET h.route_id={} 
+        ",
+        route.dst, route.route_id,
+    );
+
+    println!("{}", create_0);
+    println!("{}", create_1);
+
+    redis::pipe().
+        cmd("GRAPH.QUERY")
+            .arg("traceroute")
+            .arg(create_0)
+        .ignore()
+        .cmd("GRAPH.QUERY")
+            .arg("traceroute")
+            .arg(create_1)
+    .query::<()>(conn).unwrap();
+
 }
 
-pub fn add_hop(db:&Pool, pkt_id:u16, data:&[u8]){
-    let res = db.get_connection()
-        .and_then(|mut conn| {
-            redis::cmd("LPUSH")
-                    .arg(pkt_id)
-                    .arg(data)
-            .query::<()>(&mut conn)
-        });
+pub fn add_hop(conn:& mut redis::Connection, hop:&lib_data::AppHop){
+    let create_nodes = format!(
+        "
+        MERGE (h1:hop {{ip:'{}'}}) \
+            ON CREATE SET h1.route_id={} \
+        WITH h1 \
+        MATCH (h2:hop{{ip:'{}'}}) \
+        CREATE (h1)<-[r:next{{ ttl:{}, rtt:{} }}]-(h2)
+        ",
+        hop.this, 
+        hop.route_id,
+        hop.src,
+        hop.ttl,
+        hop.rtt,
+    );
+    println!("{}", create_nodes);
 
-    if let Err(e) = res{
-        error!("redis.hops: unable to send! Error:{}", e);
-    }
+    redis::cmd("GRAPH.QUERY")
+            .arg("traceroute")
+            .arg(create_nodes)
+        .query::<()>(conn).unwrap();
 }
