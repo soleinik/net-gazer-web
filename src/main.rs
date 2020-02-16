@@ -4,7 +4,8 @@
 use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
 use actix_files as fs;
 
-use lib_fbuffers::get_root_as_message;
+use lib_fbuffers;
+use lib_comm;
 
 
 #[actix_rt::main]
@@ -62,8 +63,23 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
         bytes.extend_from_slice(&item?);
     }
 
-    let vmsg = bytes.to_vec();
-    let msg = get_root_as_message(&vmsg);
+    let vbytes = bytes.to_vec();
+    bytes.freeze();
+
+    let envelop = lib_comm::get_root_as_message(&vbytes);
+    println!("sensor:{}, mseq:{}, uptime:{}, message_type:{}", 
+        envelop.sensor_id().unwrap(),
+        envelop.seq(),
+        envelop.uptime(),
+        envelop.ptype()
+    );
+
+    let payload = envelop.payload().unwrap();
+    let vpayload:Vec<u8> = payload.into();
+    println!("{:?}", vpayload);
+
+    let msg = lib_fbuffers::get_root_as_message(&vpayload);
+
 
     if let Some(routes) = msg.routes(){
         routes.iter().for_each(|r|{
@@ -72,9 +88,12 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
                 std::net::Ipv4Addr::from(r.src()),
                 std::net::Ipv4Addr::from(r.dst())
             );
-            let mut conn = db.get_connection().unwrap();
-            lib_db::add_route(&mut conn, &route);
-            //println!("{}", route);
+            if let Ok(mut conn) = db.get_connection(){
+                lib_db::add_route(&mut conn, &route);
+            }else{
+                println!("Is database running? Error connecting to db...");
+            }
+            println!("{}", route);
         })
     }else if let Some(hops) = msg.hops(){
         hops.iter().for_each(|r|{
@@ -85,12 +104,14 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
                 r.ttl(),
                 r.rtt()
             );
-            let mut conn = db.get_connection().unwrap();
-            lib_db::add_hop(&mut conn, &hop);
-            //println!("\t{}", hop);
+            if let Ok(mut conn) = db.get_connection(){
+                lib_db::add_hop(&mut conn, &hop);
+            }else{
+                println!("Is database running? Error connecting to db...");
+            }
+            println!("\t{}", hop);
         })
     }
-    bytes.freeze();
     Ok(HttpResponse::Ok().finish())
 }
 

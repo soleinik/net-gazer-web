@@ -11,12 +11,14 @@ members=[
     "lib-data",
     "lib-fbuffers",
     "lib-db",
+    "lib-comm",
 ]
 
 [dependencies]
 lib-data = { path="./lib-data" }
 lib-fbuffers = { path="./lib-fbuffers" }
 lib-db = { path="./lib-db" }
+lib-comm = { path="./lib-comm" }
 
 actix-rt = "1.0.0"
 actix-web = "2.0.0"
