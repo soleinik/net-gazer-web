@@ -1,0 +1,22 @@
+// traceroute.fbs
+
+
+table Message{
+    seq:uint64;         //message sequence
+    packets:[Packet];   //new packets
+}
+
+
+table Packet{
+    src: uint32;        //ipv4
+    dst: uint32;        //ipv4
+
+    proto: string;
+    len:uint16;
+    id:uint16;
+    flags:uint16;
+    opts:[uint8];
+
+}
+
+root_type Message;

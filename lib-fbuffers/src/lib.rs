@@ -1,11 +1,8 @@
-mod traceroute_generated;
+#[allow(dead_code)]
+#[allow(unused_imports)]
+pub mod traceroute_generated;
 
-pub use traceroute_generated::*;
+#[allow(dead_code)]
+#[allow(unused_imports)]
+pub mod allipv4_generated;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

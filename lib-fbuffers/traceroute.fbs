@@ -3,7 +3,6 @@
 
 table Message{
     seq:uint64;         //message sequence
-
     routes:[Route];     //new routes
     hops:  [Hop];       //route hops
 }
@@ -20,7 +19,7 @@ table Hop{
     route_id:uint16;    //pkt_id, trace id
 
     src: uint32;        //ipv4, prev hop
-    this: uint32;       //ipv4, this
+    this: uint32;        //ipv4, this
 
     ttl:ubyte;          //time to live, also hop id
     rtt:uint16;         //round trip time

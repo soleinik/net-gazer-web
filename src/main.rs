@@ -1,11 +1,27 @@
 #[macro_use] extern crate log;
+#[macro_use] extern crate bitflags;
 
 
 use actix_web::{get,post, web, App, HttpServer, Responder, middleware, Error, HttpResponse};
 use actix_files as fs;
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use lib_fbuffers;
 use lib_comm;
+
+//#[derive(Default)]
+struct State{
+    seq_h:AtomicU64,
+    seq_l:AtomicU64,
+}
+
+impl Default for State{
+    fn default() -> Self {
+        State{seq_h:AtomicU64::new(0), seq_l:AtomicU64::new(0)}
+    }
+}
+
 
 
 #[actix_rt::main]
@@ -36,6 +52,9 @@ async fn main() -> std::io::Result<()> {
     let url = format!("{}:{}", opt.http_ip.unwrap(), opt.http_port.unwrap());
     println!("starting server at {}...", url);
 
+
+    let state = web::Data::new(State::default());
+
     HttpServer::new(move || 
         App::new()
         .wrap(
@@ -43,6 +62,7 @@ async fn main() -> std::io::Result<()> {
             .exclude("/health")
         )
         .data(client.clone())
+        .app_data(state.clone())
         .service(chart)
         .service(data)
         .service(health)
@@ -57,7 +77,7 @@ async fn main() -> std::io::Result<()> {
 use futures::StreamExt;
 
 #[post("/data")]
-async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<HttpResponse, Error>{
+async fn data(mut body: web::Payload, state: web::Data<State>, db: web::Data<lib_db::Pool>) -> Result<HttpResponse, Error>{
     let mut bytes = web::BytesMut::new();
     while let Some(item) = body.next().await {
         bytes.extend_from_slice(&item?);
@@ -67,7 +87,17 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
     bytes.freeze();
 
     let envelop = lib_comm::get_root_as_message(&vbytes);
-    println!("sensor:{}, mseq:{}, uptime:{}, message_type:{}", 
+
+    {
+        let seq = state.seq_h.swap(envelop.seq(), Ordering::Relaxed);
+        if  seq >=  envelop.seq(){
+            println!("Envelop: out of order cur:{} >= inc:{}, gap dn:{}", seq, envelop.seq(), seq - envelop.seq());
+        }else if (seq+1) !=  envelop.seq() {
+            println!("Envelop: out of order cur:{} >= inc:{}, gap up:{}", seq, envelop.seq(), envelop.seq() - seq);
+        }
+    }
+
+    info!("sensor:{}, mseq:{}, uptime:{}, message_type:{}", 
         envelop.sensor_id().unwrap(),
         envelop.seq(),
         envelop.uptime(),
@@ -76,42 +106,78 @@ async fn data(mut body: web::Payload, db: web::Data<lib_db::Pool>) -> Result<Htt
 
     let payload = envelop.payload().unwrap();
     let vpayload:Vec<u8> = payload.into();
-    println!("{:?}", vpayload);
 
-    let msg = lib_fbuffers::get_root_as_message(&vpayload);
-
-
-    if let Some(routes) = msg.routes(){
-        routes.iter().for_each(|r|{
-            let route = lib_data::AppTraceRoute::new(
-                r.route_id(),
-                std::net::Ipv4Addr::from(r.src()),
-                std::net::Ipv4Addr::from(r.dst())
-            );
-            if let Ok(mut conn) = db.get_connection(){
-                lib_db::add_route(&mut conn, &route);
-            }else{
-                println!("Is database running? Error connecting to db...");
+    //traceroute
+    if envelop.ptype() == 1{
+        //this will be offloaded to plugin
+        let msg = lib_fbuffers::traceroute_generated::get_root_as_message(&vpayload);
+        {
+            let seq = state.seq_l.swap(msg.seq(), Ordering::Relaxed);
+            if  seq >=  msg.seq(){
+                println!("Message: out of order cur:{} >= inc:{}, gap dn:{}", seq, msg.seq(), seq - msg.seq());
+            }else if (seq+1) !=  msg.seq() {
+                println!("Message: out of order cur:{} >= inc:{}, gap up:{}", seq, msg.seq(), msg.seq() - seq);
             }
-            println!("{}", route);
-        })
-    }else if let Some(hops) = msg.hops(){
-        hops.iter().for_each(|r|{
-            let hop = lib_data::AppHop::new(
-                r.route_id(),
-                std::net::Ipv4Addr::from(r.src()),
-                std::net::Ipv4Addr::from(r.this()),
-                r.ttl(),
-                r.rtt()
+        }
+
+        if let Some(routes) = msg.routes(){
+            routes.iter().for_each(|r|{
+                let route = lib_data::AppTraceRoute::new(
+                    r.route_id(),
+                    std::net::Ipv4Addr::from(r.src()),
+                    std::net::Ipv4Addr::from(r.dst())
+                );
+
+                //println!("+++++++++++{}", route);
+                lib_db::add_route_l(&route);
+                // if let Ok(mut conn) = db.get_connection(){
+                //     lib_db::add_route(&mut conn, &route);
+                // }else{
+                //     println!("Is database running? Error connecting to db...");
+                // }
+            })
+        }else if let Some(hops) = msg.hops(){
+            hops.iter().for_each(|r|{
+                let hop = lib_data::AppHop::new(
+                    r.route_id(),
+                    std::net::Ipv4Addr::from(r.src()),
+                    std::net::Ipv4Addr::from(r.this()),
+                    r.ttl(),
+                    r.rtt()
+                );
+
+                lib_db::add_hop_l(&hop);
+                // //println!("==========\t{}", hop);
+                // if let Ok(mut conn) = db.get_connection(){
+                //     lib_db::add_hop(&mut conn, &hop);
+                // }else{
+                //     println!("Is database running? Error connecting to db...");
+                // }
+            })
+        }
+
+    }else if envelop.ptype() == 2{
+        let msg = lib_fbuffers::allipv4_generated::get_root_as_message(&vpayload);
+        if let Some(packets) = msg.packets(){
+            packets.iter().for_each(|p|{
+                println!("[{}] {} {}->{} [{}] {} {:?}", 
+                    p.proto().unwrap(),
+                    p.id(),
+                    std::net::Ipv4Addr::from(p.src()),
+                    std::net::Ipv4Addr::from(p.dst()),
+                    p.len(),
+                    bitflags_to_string(p.flags()),
+                    p.opts().unwrap(),
             );
-            if let Ok(mut conn) = db.get_connection(){
-                lib_db::add_hop(&mut conn, &hop);
-            }else{
-                println!("Is database running? Error connecting to db...");
-            }
-            println!("\t{}", hop);
-        })
+            
+            })
+        }
+
     }
+
+
+
+
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -130,3 +196,28 @@ async fn chart() -> Result<HttpResponse, Error> {
         .content_type("text/html; charset=utf-8")
         .body(include_str!("../www/static/chart.html")))
 }
+
+
+use pnet::packet::tcp::TcpFlags;
+bitflags! {
+    struct Flags: u16 {
+        const FIN = TcpFlags::FIN; //1
+        const SYN = TcpFlags::SYN; //2
+        const RST = TcpFlags::RST; //4
+        const PSH = TcpFlags::PSH; //8
+        const ACK = TcpFlags::ACK; //16
+        const URG = TcpFlags::URG; //32
+
+        const CWR = TcpFlags::CWR; //
+        const ECE = TcpFlags::ECE; //
+    }
+}
+
+fn bitflags_to_string(flags:u16) -> String{
+    if let Some(s) = Flags::from_bits(flags) {
+        return format!("{:?}", s);
+    }
+    String::new()
+}
+
+
